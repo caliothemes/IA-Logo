@@ -29,7 +29,7 @@ app.post('/generate', async (req, res) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: "a9758cb7f2a353d8d18c2e33a9652794e9b6bc9db576734a01e7c15c89d65ab9", // Stable Diffusion v2.1, exemple
+        version: "92fa143ccefeed01534d5d6648bd47796ef06847a6bc55c0e5c5b6975f2dcdfb", // Stable Diffusion v2.1, exemple
         input: { prompt, num_outputs: 3 },
       }),
     });
