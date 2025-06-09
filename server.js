@@ -1,28 +1,43 @@
-require('dotenv').config();
 const express = require('express');
-const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // si node 18+, tu peux utiliser fetch natif
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.post('/generate', async (req, res) => {
+const replicateToken = "r8_djQNMobvbOFxoO494K8ITy5FRomEsu509jlzW";
+
+app.post('/generate-logo', async (req, res) => {
   const { prompt } = req.body;
 
-  const response = await fetch('https://api.replicate.com/v1/predictions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      version: "cf93cf55cf5651e3888f45d61886ff3b1e678c82002448ec2cf58c07c990f463",
-      input: { prompt }
-    })
-  });
+  try {
+    const response = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ${replicateToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        version: "f46c8c2063ba7b07ed1a220e5e852dd4ecce13f1aaac1fd4f2891313e31b9110",
+        input: { prompt }
+      })
+    });
 
-  const data = await response.json();
-  res.json(data);
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).send(errorText);
+    }
+
+    const prediction = await response.json();
+
+    res.json(prediction);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server ready at http://localhost:${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server ready on port ${PORT}`);
+});
+
