@@ -19,30 +19,37 @@ app.use(bodyParser.json());
 
 app.post('/generate', async (req, res) => {
   try {
-    const { prompt, size = "1024x1024", style = "any" } = req.body;
+    const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
-    // Créer la requête à Replicate
-    const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+    // Envoie requête à Replicate
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
         Authorization: `Token ${REPLICATE_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: "recraft-ai/recraft-v3-svg:ac87d74dc2954575c4ffa152c5f793baea533f135764b5a567f74cbe3841cd2e",
-        input: { prompt, size, style },
+        version: "92fa143ccefeed01534d5d6648bd47796ef06847a6bc55c0e5c5b6975f2dcdfb", // Stable Diffusion v2.1 par ex
+        input: {
+          prompt,
+          num_outputs: 3, // Demande 3 images
+          width: 512,
+          height: 512,
+          guidance_scale: 7.5,
+          // Ajuste les params selon besoin
+        },
       }),
     });
 
-    if (!replicateResponse.ok) {
-      const errText = await replicateResponse.text();
+    if (!response.ok) {
+      const errText = await response.text();
       return res.status(500).json({ error: `Replicate API error: ${errText}` });
     }
 
-    const prediction = await replicateResponse.json();
+    const prediction = await response.json();
 
-    // Polling pour attendre la fin du traitement
+    // Attend la fin du traitement
     let status = prediction.status;
     let output = null;
 
