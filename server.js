@@ -1,7 +1,9 @@
 const express = require('express');
-const fetch = require('node-fetch'); // si node 18+, tu peux utiliser fetch natif
+const fetch = require('node-fetch'); // si Node < 18, sinon fetch natif
+const cors = require('cors');
 const app = express();
 
+app.use(cors()); // Permet appels cross-origin depuis ton front (Shopify, etc)
 app.use(express.json());
 
 const replicateToken = "r8_djQNMobvbOFxoO494K8ITy5FRomEsu509jlzW";
@@ -28,8 +30,27 @@ app.post('/generate-logo', async (req, res) => {
     }
 
     const prediction = await response.json();
-
     res.json(prediction);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/status/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const response = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+      headers: { "Authorization": `Token ${replicateToken}` }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).send(errorText);
+    }
+
+    const status = await response.json();
+    res.json(status);
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -40,4 +61,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server ready on port ${PORT}`);
 });
-
