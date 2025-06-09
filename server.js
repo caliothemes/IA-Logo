@@ -1,63 +1,70 @@
-const express = require('express');
-const fetch = require('node-fetch'); // si Node < 18, sinon fetch natif
-const cors = require('cors');
+import express from 'express';
+import cors from 'cors';
+import fetch from 'node-fetch';
+
 const app = express();
 
-app.use(cors()); // Permet appels cross-origin depuis ton front (Shopify, etc)
+app.use(cors());
 app.use(express.json());
 
-const replicateToken = "r8_djQNMobvbOFxoO494K8ITy5FRomEsu509jlzW";
+const REPLICATE_TOKEN = "r8_djQNMobvbOFxoO494K8ITy5FRomEsu509jlzW";
+const MODEL_VERSION = "f46c8c2063ba7b07ed1a220e5e852dd4ecce13f1aaac1fd4f2891313e31b9110";
 
-app.post('/generate-logo', async (req, res) => {
-  const { prompt } = req.body;
-
+app.post('/generate', async (req, res) => {
   try {
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
+    const { prompt } = req.body;
+
+    if (!prompt) return res.status(400).json({ error: "Missing prompt" });
+
+    // Crée la prédiction sur Replicate
+    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
-        "Authorization": `Token ${replicateToken}`,
+        "Authorization": `Token ${REPLICATE_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        version: "f46c8c2063ba7b07ed1a220e5e852dd4ecce13f1aaac1fd4f2891313e31b9110",
+        version: MODEL_VERSION,
         input: { prompt }
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(response.status).send(errorText);
+    const prediction = await createResponse.json();
+
+    if (!prediction.id) {
+      return res.status(500).json({ error: "Erreur lors de la création de la prédiction", details: prediction });
     }
 
-    const prediction = await response.json();
-    res.json(prediction);
+    // Poll pour la fin de la génération
+    let status = prediction.status;
+    let output = null;
+    while (status !== "succeeded" && status !== "failed") {
+      await new Promise(r => setTimeout(r, 2500));
+      const statusRes = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        headers: {
+          "Authorization": `Token ${REPLICATE_TOKEN}`
+        }
+      });
+      const statusJson = await statusRes.json();
+      status = statusJson.status;
+      if (status === "succeeded") {
+        output = statusJson.output;
+      }
+      if (status === "failed") {
+        return res.status(500).json({ error: "La génération a échoué" });
+      }
+    }
+
+    res.json({ output });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur", details: err.message });
   }
 });
 
-app.get('/status/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const response = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-      headers: { "Authorization": `Token ${replicateToken}` }
-    });
+const PORT = process.env.PORT || 10000;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(response.status).send(errorText);
-    }
-
-    const status = await response.json();
-    res.json(status);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server ready on port ${PORT}`);
+  console.log(`Serveur prêt sur le port ${PORT}`);
 });
